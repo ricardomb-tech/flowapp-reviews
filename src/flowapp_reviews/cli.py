@@ -11,9 +11,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from .analysis import analyze
-from .cleaning import clean
-from .loading import DatasetFormatError, load_records
+from .loading import DatasetFormatError
+from .pipeline import EmptyDatasetError, NoValidRowsError, run_pipeline
 from .reporting import render_console, render_json, render_markdown
 
 EXIT_OK = 0
@@ -34,19 +33,22 @@ def build_parser() -> argparse.ArgumentParser:
         "dataset", type=Path, help="Ruta al CSV / JSON / JSONL de reseñas."
     )
     parser.add_argument(
-        "-f", "--format",
+        "-f",
+        "--format",
         choices=("console", "json", "markdown"),
         default="console",
         help="Formato de salida (por defecto: console).",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         type=Path,
         default=None,
         help="Archivo de salida. Si se omite, imprime en stdout.",
     )
     parser.add_argument(
-        "-n", "--top",
+        "-n",
+        "--top",
         type=int,
         default=10,
         help="Número de palabras a reportar por grupo (por defecto: 10).",
@@ -72,39 +74,30 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_USAGE
 
     try:
-        raw_reviews = load_records(args.dataset)
+        result = run_pipeline(
+            args.dataset,
+            top_n=args.top,
+            min_count_for_lift=args.min_lift_count,
+        )
     except FileNotFoundError as error:
         print(f"error: {error}", file=sys.stderr)
         return EXIT_USAGE
     except DatasetFormatError as error:
         print(f"error: {error}", file=sys.stderr)
         return EXIT_DATA
-
-    if not raw_reviews:
+    except EmptyDatasetError:
         print("error: el dataset está vacío.", file=sys.stderr)
         return EXIT_DATA
-
-    cleaning = clean(raw_reviews)
-    if not cleaning.reviews:
-        print(
-            "error: ninguna fila superó la validación. "
-            f"Se descartaron {cleaning.total_rejected} filas.",
-            file=sys.stderr,
-        )
+    except NoValidRowsError as error:
+        print(f"error: {error}", file=sys.stderr)
         return EXIT_DATA
-
-    analysis = analyze(
-        cleaning.reviews,
-        top_n=args.top,
-        min_count_for_lift=args.min_lift_count,
-    )
 
     renderers = {
         "console": render_console,
         "json": render_json,
         "markdown": render_markdown,
     }
-    output = renderers[args.format](cleaning, analysis)
+    output = renderers[args.format](result.cleaning, result.analysis)
 
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

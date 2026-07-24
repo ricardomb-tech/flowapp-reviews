@@ -7,6 +7,7 @@ estado del programa sea razonable: si tengo un `Review`, es válido. Punto.
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Final
@@ -109,7 +110,7 @@ class CleaningReport:
         return self.total_valid / self.total_input
 
     def rejections_by_reason(self) -> dict[RejectionReason, int]:
-        counts: dict[RejectionReason, int] = {}
+        counts: Counter[RejectionReason] = Counter()
         for rejection in self.rejections:
-            counts[rejection.reason] = counts.get(rejection.reason, 0) + 1
-        return counts
+            counts[rejection.reason] += 1
+        return dict(counts)

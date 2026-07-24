@@ -56,6 +56,7 @@ def render_console(cleaning: CleaningReport, analysis: AnalysisResult) -> str:
         share = count / cleaning.total_valid if cleaning.total_valid else 0.0
         add(f"  {rating} ★  {_bar(count, peak)}  {count:>4}  ({share:>5.1%})")
     add(f"\n  Rating promedio       : {analysis.average_rating:.2f} / 5.00")
+    add(f"  Rating mediana        : {analysis.median_rating:.2f} / 5.00")
 
     add("")
     add("── 3. PALABRAS MÁS FRECUENTES POR NIVEL DE RATING ".ljust(68, "─"))
@@ -195,6 +196,7 @@ def render_json(cleaning: CleaningReport, analysis: AnalysisResult) -> str:
         },
         "summary": {
             "average_rating": round(analysis.average_rating, 3),
+            "median_rating": round(analysis.median_rating, 3),
             "rating_distribution": analysis.rating_distribution,
             "global_top_words": [
                 {"word": w.word, "count": w.count}
@@ -223,6 +225,15 @@ def render_markdown(cleaning: CleaningReport, analysis: AnalysisResult) -> str:
         cleaning.rejections_by_reason().items(), key=lambda kv: -kv[1]
     ):
         lines.append(f"| ↳ {reason.value} | {count} |")
+
+    lines.append("\n## Resumen estadístico\n")
+    lines.append("| Métrica | Valor |")
+    lines.append("| --- | ---: |")
+    lines.append(f"| Rating promedio | {analysis.average_rating:.2f} / 5.00 |")
+    lines.append(f"| Rating mediana | {analysis.median_rating:.2f} / 5.00 |")
+    for rating, count in sorted(analysis.rating_distribution.items()):
+        share = count / cleaning.total_valid if cleaning.total_valid else 0.0
+        lines.append(f"| Distribución {rating} ★ | {count} ({share:.1%}) |")
 
     lines.append("\n## Palabras por nivel de rating\n")
     lines.append("| Nivel | Reseñas | Más frecuentes | Más distintivas |")

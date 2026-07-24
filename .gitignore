@@ -10,6 +10,6 @@ dist/
 .ruff_cache/
 .coverage
 htmlcov/
-data/reviews_sample.csv
+data/resenas_flowapp.csv
 out/
 .DS_Store

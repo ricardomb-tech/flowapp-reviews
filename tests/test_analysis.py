@@ -101,6 +101,19 @@ class TestAnalyze:
         result = analyze([review("a b c", 1), review("d e f", 5)])
         assert result.average_rating == pytest.approx(3.0)
 
+    def test_rating_mediana(self) -> None:
+        result = analyze([review("a b c", 1), review("d e f", 5)])
+        assert result.median_rating == pytest.approx(3.0)
+
+    def test_mediana_con_conteo_par(self) -> None:
+        result = analyze([
+            review("a b c", 1),
+            review("d e f", 2),
+            review("g h i", 4),
+            review("j k l", 5),
+        ])
+        assert result.median_rating == pytest.approx(3.0)
+
     def test_distribucion_incluye_todos_los_niveles(self) -> None:
         result = analyze([review("buena app", 5)])
         assert result.rating_distribution == {1: 0, 2: 0, 3: 0, 4: 0, 5: 1}
@@ -109,3 +122,4 @@ class TestAnalyze:
         result = analyze([])
         assert result.by_rating == ()
         assert result.average_rating == 0.0
+        assert result.median_rating == 0.0

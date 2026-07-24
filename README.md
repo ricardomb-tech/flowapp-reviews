@@ -1,218 +1,210 @@
-# FlowApp — Análisis de reseñas de usuarios
+# FlowApp Reviews Analyzer
 
-Limpieza y análisis de un dataset de reseñas de FlowApp (texto libre + rating 1-5)
-que contiene **datos nulos, ratings inválidos y duplicados inyectados a propósito**.
+Herramienta para limpiar y analizar un dataset de reseñas de **FlowApp**. El
+programa detecta datos inválidos, elimina duplicados, analiza las palabras más
+frecuentes por nivel de calificación y genera reportes en consola, JSON o
+Markdown.
 
-El programa limpia el dataset, calcula las palabras más frecuentes por nivel de
-rating y produce un resumen ejecutable en consola, JSON o Markdown.
-
-> EPAM · Python Run, Debug the Future — Reto 1 "Bienvenida al Reto".
+> Solución desarrollada para el reto **EPAM · Python Run, Debug the Future –
+> Reto 1 "Bienvenida al Reto"**.
 
 ---
 
-## Ejecución rápida
+## Características
 
-Requiere **Python 3.11+**. No hay que instalar nada.
+- Limpieza de datos con reglas explícitas.
+- Validación de ratings y eliminación de registros inválidos.
+- Detección de duplicados exactos y normalizados.
+- Análisis de palabras más frecuentes por nivel de rating.
+- Identificación de palabras distintivas mediante la métrica **lift**.
+- Reportes en consola, JSON y Markdown.
+- Implementado únicamente con la librería estándar de Python.
+
+---
+
+# Requisitos
+
+- Python **3.11** o superior.
+
+No es necesario instalar dependencias adicionales.
+
+---
+
+# Ejecución
+
+Con el dataset proporcionado por EPAM:
 
 ```bash
-# 1. Generar un dataset de muestra con los mismos defectos que el original
-python scripts/generate_sample_data.py data/reviews_sample.csv
-
-# 2. Analizarlo
-python -m flowapp_reviews data/reviews_sample.csv
+python -m flowapp_reviews data/resenas_flowapp.csv
 ```
 
-Con el dataset oficial:
+También es posible analizar archivos **CSV**, **JSON** (array de objetos) y
+**JSONL**.
 
-```bash
-python -m flowapp_reviews ruta/al/dataset.csv
+## Opciones disponibles
+
+```text
+python -m flowapp_reviews DATASET \
+    [-f {console,json,markdown}] \
+    [-o SALIDA] \
+    [-n TOP] \
+    [--min-lift-count N]
 ```
 
-### Opciones
+| Opción | Descripción | Valor por defecto |
+| ------- | ----------- | ----------------- |
+| `-f`, `--format` | Formato de salida | `console` |
+| `-o`, `--output` | Archivo de salida | stdout |
+| `-n`, `--top` | Número de palabras por grupo | `10` |
+| `--min-lift-count` | Mínimo de apariciones para calcular lift | `2` |
 
-```
-python -m flowapp_reviews DATASET [-f {console,json,markdown}] [-o SALIDA]
-                                  [-n TOP] [--min-lift-count N]
-```
+### Códigos de salida
 
-| Opción | Descripción | Defecto |
-| --- | --- | --- |
-| `-f, --format` | Formato de salida | `console` |
-| `-o, --output` | Archivo destino (si se omite, stdout) | — |
-| `-n, --top` | Palabras a reportar por grupo | `10` |
-| `--min-lift-count` | Apariciones mínimas para el ranking de distintivas | `2` |
-
-Códigos de salida: `0` OK · `2` error de uso (archivo inexistente, argumento
-inválido) · `3` error de datos (dataset vacío, columnas irreconocibles,
-ninguna fila válida).
-
-### Verificación
-
-```bash
-make check     # ruff + mypy --strict + pytest con cobertura
-```
-
-**Estado actual: 59 pruebas en verde · 94% de cobertura · `mypy --strict` sin
-errores · `ruff` sin advertencias.**
+| Código | Significado |
+| ------- | ----------- |
+| `0` | Ejecución correcta |
+| `2` | Error de uso (archivo inexistente, argumentos inválidos, etc.) |
+| `3` | Error de datos (dataset vacío, columnas inválidas o ninguna fila válida) |
 
 ---
 
-## Formatos de entrada
+# Formatos de entrada
 
-Se aceptan **CSV** (delimitador autodetectado: `,` `;` `\t` `|`), **JSON**
-(array de objetos) y **JSONL**. Los nombres de columna se resuelven por alias,
-así que el script funciona con `review_text`, `texto`, `comment`, `body`…
-y con `rating`, `stars`, `estrellas`, `calificacion`… sin tocar código.
+Se aceptan:
 
----
+- CSV (delimitador autodetectado: `,`, `;`, `|` o tabulador).
+- JSON (array de objetos).
+- JSONL.
 
-## Reglas de limpieza
+Las columnas pueden tener distintos nombres gracias a un sistema de alias.
+Por ejemplo:
 
-| Defecto | Regla | Motivo registrado |
-| --- | --- | --- |
-| Texto ausente o en blanco | Se descarta la fila | `texto_nulo_o_vacio` |
-| Rating ausente | Se descarta la fila | `rating_nulo_o_vacio` |
-| Rating no numérico (`"cinco"`, `"★★★"`) | Se descarta | `rating_no_numerico` |
-| Rating fuera de 1-5 (`0`, `6`, `-1`, `4.5`) | Se descarta | `rating_fuera_de_rango` |
-| Texto y rating idénticos a una fila previa | Se conserva la primera | `duplicado_exacto` |
-| Igual tras normalizar (tildes, casing, espacios) | Se conserva la primera | `duplicado_normalizado` |
-
-Se aceptan como válidos: `"4"`, `"4.0"`, `"4,0"`, `" 5 "`.
-
-**Ninguna fila se descarta en silencio.** Cada rechazo queda registrado con su
-número de línea y su motivo, y el reporte final verifica el invariante
-`válidas + rechazadas == total leído`.
+| Texto | Rating |
+| ------ | ------ |
+| `review_text` | `rating` |
+| `texto` | `calificacion` |
+| `comment` | `stars` |
+| `body` | `estrellas` |
 
 ---
 
-## Análisis
+# Reglas de limpieza
 
-Además de las palabras más frecuentes por nivel de rating (lo que pide el
-enunciado), se reportan las **palabras distintivas** de cada nivel:
+| Defecto encontrado | Acción |
+| ------------------ | ------ |
+| Texto vacío o nulo | Se descarta |
+| Rating vacío | Se descarta |
+| Rating no numérico | Se descarta |
+| Rating fuera del rango 1–5 | Se descarta |
+| Duplicado exacto | Se conserva la primera aparición |
+| Duplicado normalizado | Se conserva la primera aparición |
+
+Se aceptan como válidos valores como:
 
 ```
-lift(palabra, nivel) = frecuencia relativa en el nivel / frecuencia relativa global
+4
+4.0
+4,0
+ 5
 ```
 
-**Por qué.** Las palabras más frecuentes en rating 1 y en rating 5 tienden a ser
-casi las mismas — `app`, `flowapp`, `funciona` — porque son el tema del que
-todos hablan. La pregunta útil de negocio no es qué se repite, sino qué se dice
-en un nivel **y no en los otros**. Un lift de 3.0 indica que la palabra aparece
-3 veces más de lo esperado en ese grupo. `--min-lift-count` evita que una
-palabra que aparece una sola vez, con lift altísimo, desplace señal real.
-
-También se agrupa por bandas de sentimiento (negativo 1-2, neutro 3, positivo 4-5),
-porque con datasets pequeños los conteos por rating individual quedan demasiado
-dispersos para ver patrones.
+Cada registro descartado queda documentado con el motivo correspondiente.
+Ninguna fila se elimina de forma silenciosa.
 
 ---
 
-## Arquitectura
+# Análisis realizado
+
+El programa calcula:
+
+- palabras más frecuentes por rating;
+- palabras distintivas mediante **lift**;
+- distribución de ratings;
+- promedio y mediana;
+- agrupación por sentimiento:
+
+| Banda | Ratings |
+| ------ | ------- |
+| Negativo | 1–2 |
+| Neutro | 3 |
+| Positivo | 4–5 |
+
+La métrica **lift** permite identificar palabras que aparecen con una frecuencia
+mayor de la esperada dentro de un grupo determinado.
+
+```
+lift = frecuencia relativa en el grupo / frecuencia relativa global
+```
+
+---
+
+# Arquitectura
 
 ```
 src/flowapp_reviews/
-├── models.py      Tipos del dominio (frozen dataclasses, enums)
-├── loading.py     Lectura de CSV/JSON/JSONL y resolución de columnas
-├── cleaning.py    Validación, coerción de ratings y deduplicación
-├── text.py        Normalización, tokenización y stopwords ES + EN
-├── analysis.py    Frecuencias por grupo y cálculo de lift
-├── reporting.py   Presentación en consola, JSON y Markdown
-└── cli.py         Argumentos, orquestación y códigos de salida
+├── cli.py
+├── loading.py
+├── cleaning.py
+├── analysis.py
+├── reporting.py
+├── text.py
+└── models.py
 ```
 
-Cada capa depende solo de las anteriores. `analysis.py` no sabe nada de
-archivos; `reporting.py` no sabe nada de formatos de entrada. Eso permite
-probar la lógica sin tocar disco — y es la razón de que 59 pruebas corran en
-menos de un segundo.
+La descripción detallada de la arquitectura, los diagramas y las decisiones de
+diseño se encuentran en la carpeta **docs/**.
 
 ---
 
-## Decisiones técnicas
 
-### 1. Cero dependencias: solo librería estándar
+# Calidad
 
-Lo natural sería pandas. **No se usó, deliberadamente.**
+El proyecto incluye verificaciones automáticas para mantener la calidad del
+código.
 
-`csv`, `collections.Counter`, `unicodedata` y `re` resuelven este problema
-completo sin traer 30 MB de dependencias transitivas. A cambio se gana: el
-proyecto corre en cualquier Python 3.11+ sin instalar nada, el arranque es
-inmediato, y no hay riesgo de que el evaluador se quede atascado en un
-`pip install`.
-
-El intercambio es real y lo asumo: con un dataset de millones de filas, pandas
-o Polars ganarían por rendimiento y expresividad. Para un dataset de reseñas
-de una app, la librería estándar es suficiente y la simplicidad operativa vale
-más que el rendimiento que no se necesita.
-
-### 2. Descartar, no imputar
-
-Las filas con rating nulo o inválido **se descartan, no se rellenan**. Imputar
-el rating promedio movería reseñas a grupos a los que no pertenecen y
-contaminaría exactamente lo que se está midiendo: qué palabras corresponden a
-qué nivel de satisfacción. Un dataset más pequeño y correcto vale más que uno
-completo e inventado.
-
-Por la misma razón, `4.5` se rechaza en vez de redondearse: no es un nivel de
-la escala, y redondear lo asignaría arbitrariamente a un grupo.
-
-### 3. Deduplicación en dos niveles
-
-El duplicado exacto es el caso obvio. El interesante es el "casi duplicado":
-el mismo texto con distinto casing, tildes o espaciado, que un `==` no detecta
-pero que es claramente el mismo contenido. Se resuelve comparando la forma
-normalizada.
-
-La clave de deduplicación incluye el rating: **dos usuarios pueden escribir
-"Muy buena app" y puntuar 5 y 3 respectivamente**. Eso no es un duplicado, son
-dos opiniones distintas y ambas deben contar.
-
-### 4. Salida determinista
-
-`Counter.most_common()` no garantiza el orden entre elementos empatados. Todos
-los rankings se reordenan explícitamente por `(-conteo, palabra)`, de modo que
-dos ejecuciones sobre el mismo dataset producen byte por byte la misma salida.
-Sin eso, las pruebas serían intermitentes y el resultado no sería reproducible.
-
-### 5. Normalización agresiva del texto
-
-Se eliminan tildes antes de tokenizar: en un dataset real de usuarios
-hispanohablantes, `aplicación` y `aplicacion` son la misma palabra y la mitad
-de la gente no pone tildes. Se filtran stopwords en español **e inglés**, porque
-las reseñas de apps suelen venir mezcladas.
-
-Se conservan las repeticiones dentro de una misma reseña: que alguien escriba
-"lento lento lento" es información sobre intensidad, no ruido.
-
----
-
-## Pruebas
-
-```
-tests/
-├── test_cleaning.py   Validación de ratings, nulos, duplicados, invariantes
-├── test_analysis.py   Normalización, tokenización, frecuencias, lift
-└── test_pipeline.py   Carga de archivos, end-to-end y CLI
+```bash
+make check
 ```
 
-Cada defecto que el enunciado declara haber inyectado tiene su prueba
-correspondiente. Se cubren además los casos borde: dataset vacío, dataset sin
-ninguna fila válida, columnas irreconocibles, archivo inexistente y empates en
-los rankings.
+Este comando ejecuta:
+
+- **Ruff** para análisis de estilo y posibles errores.
+- **mypy --strict** para la verificación estática de tipos.
+- **pytest** para ejecutar la suite de pruebas automatizadas.
 
 ---
 
-## Limitaciones conocidas
+# Limitaciones conocidas
 
-- **No hay stemming ni lematización**: `lento` y `lenta` se cuentan por separado.
-  Resolverlo bien exige NLTK o spaCy, lo que rompería la decisión de cero
-  dependencias. Con el volumen de un dataset de reseñas, el impacto es menor.
-- **No hay detección de n-gramas**: `no funciona` se cuenta como `funciona`
-  (`no` es stopword). Es la limitación más relevante y sería la primera mejora:
-  bigramas resolverían las negaciones, que son justamente lo que importa en
-  reseñas negativas.
-- **El idioma no se detecta**: se filtran stopwords de ambos idiomas siempre.
-  Es una simplificación que funciona bien mientras el vocabulario no colisione.
+- No se realiza stemming ni lematización.
+- No se detectan n-gramas como `"no funciona"`.
+- No se detecta automáticamente el idioma de la reseña.
+
+Estas limitaciones fueron aceptadas para mantener el proyecto libre de
+dependencias externas y centrado en los objetivos del reto.
 
 ---
 
-Ricardo Martinez B · [`ricardomb-tech`](https://github.com/ricardomb-tech)
+# Documentación
+
+| Documento | Descripción |
+| ---------- | ----------- |
+| `docs/ARCHITECTURE.md` | Arquitectura del proyecto. |
+| `docs/adr/` | Registro de decisiones de arquitectura (Architecture Decision Records). |
+
+
+---
+
+## Nota
+
+El proyecto incluye el script `scripts/generate_sample_data.py`, que permite
+crear un dataset de ejemplo para realizar pruebas locales. Sin embargo, para la
+evaluación del reto debe utilizarse el dataset proporcionado por EPAM.
+
+---
+
+## Autor
+
+**Ricardo Martinez B**
+
+GitHub: https://github.com/ricardomb-tech
